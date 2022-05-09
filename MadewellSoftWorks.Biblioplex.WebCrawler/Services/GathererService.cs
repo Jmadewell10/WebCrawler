@@ -9,68 +9,12 @@ namespace MadewellSoftWorks.Biblioplex.WebCrawler.Services
 {
     public class GathererService : IGathererService
     {
-        private readonly HttpClient _httpClient;
         private readonly IWebDriver _driver;
-        public GathererService(HttpClient httpClient, IWebDriver driver)
+        public GathererService(IWebDriver driver)
         {
-            _httpClient = httpClient;
             _driver = driver;
         }
         string url = "https://gatherer.wizards.com/Pages/Search/Default.aspx?sort=color+&action=advanced&color=|[W]|[U]|[B]|[R]|[G]|[C]";
-
-        public string GetHTML()
-        {
-            var html = _httpClient.GetStringAsync(url).Result;
-            return html;
-        }
-
-        public void PrintHTML()
-        {
-            Console.WriteLine(GetHTML());
-        }
-
-        public HtmlDocument GetHTMLDoc(string html)
-        {
-            var htmlDoc = new HtmlDocument();
-            htmlDoc.LoadHtml(html);
-            return htmlDoc;
-        }
-
-        public IList<string> GetCardListHTML(HtmlDocument htmlDocument)
-        {
-            var listOfCardinfoHtml = new List<string>();
-            var cardHtml = htmlDocument.DocumentNode.Descendants(Constants.TABLE)
-                .Where(x => x.GetAttributeValue("class", "")
-                .Equals("cardItemTable")).ToList();
-            var cardListItems = cardHtml[0].Descendants("tr")
-                .Where(x => x.GetAttributeValue("class", "")
-                .Equals("cardItem evenItem")).ToList();
-            foreach (var card in cardListItems)
-            {
-                var cardHtmlString = card.InnerHtml.ToString();
-                listOfCardinfoHtml.Add(cardHtmlString);
-            }
-            return listOfCardinfoHtml;
-        }
-
-        public IList<Card> GetCardList(IList<string> cardListHtml)
-        {
-            IList<Card> cardList = new List<Card>();
-            foreach(var card in cardListHtml)
-            {
-                HtmlDocument cardHTMLDoc = GetHTMLDoc(card);
-                Card tempCard = new();
-                var name = cardHTMLDoc.DocumentNode.Descendants("span")
-                    .Where(x => x.GetAttributeValue("class", "")
-                    .Equals("cardTitle"))
-                    .Where(x => !string.IsNullOrEmpty(x.InnerText))
-                    .Select(x => x.InnerText).ToList();
-                tempCard.Name = name[0].ToString();
-                Console.WriteLine(tempCard.Name);
-               
-            }
-            return cardList;
-        }
 
         public void GoToGatherer()
         {
@@ -84,7 +28,7 @@ namespace MadewellSoftWorks.Biblioplex.WebCrawler.Services
 
         public IList<string> GetNames()
         {
-            IList<string>nameList = new List<string>();
+            IList<string> nameList = new List<string>();
             var names = _driver.FindElements(By.ClassName("cardTitle"));
             foreach (var name in names)
             {
@@ -94,24 +38,67 @@ namespace MadewellSoftWorks.Biblioplex.WebCrawler.Services
             return nameList;
         }
 
-        public void NextPageUrl(int currentPage)
+        public void GoToNextPageIfFirstPage()
         {
             try
             {
-                var pageElement = _driver.FindElement(By.XPath(String.Format("//*[@id=\"ctl00_ctl00_ctl00_MainContent_SubContent_bottomPagingControlsContainer\"]/div/a[{0}]", currentPage + 1)));
+                var pageElement = _driver.FindElement(By.XPath("//*[@id=\"ctl00_ctl00_ctl00_MainContent_SubContent_bottomPagingControlsContainer\"]/div/a[16]"));
                 _driver.Navigate().GoToUrl(pageElement.GetAttribute("href"));
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Console.WriteLine(e.Message);
             }
-            
+
+        }
+
+
+
+        public void GoToNextPageIfNotFirstPage()
+        {
+            try
+            {
+                var pageElement = _driver.FindElement(By.XPath("//*[@id=\"ctl00_ctl00_ctl00_MainContent_SubContent_bottomPagingControlsContainer\"]/div/a[17]"));
+                _driver.Navigate().GoToUrl(pageElement.GetAttribute("href"));
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+
+        }
+
+        public void GoToNextPageIfAfterTenthPage()
+        {
+            try
+            {
+                var pageElement = _driver.FindElement(By.XPath("//*[@id=\"ctl00_ctl00_ctl00_MainContent_SubContent_bottomPagingControlsContainer\"]/div/a[18]"));
+                _driver.Navigate().GoToUrl(pageElement.GetAttribute("href"));
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+
+        }
+
+        public void GoToPreviousPage()
+        {
+            try
+            {
+                var pageElement = _driver.FindElement(By.XPath("//*[@id=\"ctl00_ctl00_ctl00_MainContent_SubContent_bottomPagingControlsContainer\"]/div/a[2]"));
+                _driver.Navigate().GoToUrl(pageElement.GetAttribute("href"));
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
         }
 
         public void GoToFinalPage()
         {
             var finalPageElementURL = _driver.FindElement(By.XPath("//*[@id=\"ctl00_ctl00_ctl00_MainContent_SubContent_bottomPagingControlsContainer\"]/div/a[17]"));
-            _driver.Navigate ().GoToUrl(finalPageElementURL.GetAttribute("href"));
+            _driver.Navigate().GoToUrl(finalPageElementURL.GetAttribute("href"));
         }
 
         public void GoToFirstPage()
@@ -126,8 +113,25 @@ namespace MadewellSoftWorks.Biblioplex.WebCrawler.Services
             Regex pattern = new Regex(@"page=(\w+)");
             Match match = pattern.Match(pageURL);
             string page = match.Groups[1].Value;
-            int pageNumber = Int32.Parse(page)+1;
+            int pageNumber = Int32.Parse(page) + 1;
             return pageNumber;
+        }
+
+        public int Init()
+        {
+            GoToGatherer();
+            GoToFinalPage();
+            int pageCount = GetPageNumber();
+            GoToFirstPage();
+
+            return pageCount;
+        }
+
+        public string GetImage(int count)
+        {
+            var imageElement = _driver.FindElement(By.XPath(String.Format("//*[@id=\"ctl00_ctl00_ctl00_MainContent_SubContent_SubContent_ctl00_listRepeater_ctl0{0}_cardImage\"]", count)));
+            var imageSRC = imageElement.GetAttribute("src");
+            return imageSRC;
         }
     }
 }

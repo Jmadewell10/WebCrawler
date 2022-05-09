@@ -10,18 +10,22 @@ using IHost host = (IHost)Host.CreateDefaultBuilder(args)
         logging.AddConsole();
     })
     .ConfigureServices((hostContext, services) =>
-    {        
+    {
+        services.AddScoped<IGathererService, GathererService>((ServiceProvider) =>
+        {
+            return new GathererService(ServiceProvider.GetRequiredService<IWebDriver>());
+        });
+        services.AddScoped<IIterationService, IterationService>((ServiceProvider) =>
+        {
+            return new IterationService(ServiceProvider.GetRequiredService<IGathererService>());
+        });
         services.AddHostedService<Worker>((ServiceProvider) =>
         {
-            return new Worker(ServiceProvider.GetRequiredService<IGathererService>(), ServiceProvider.GetRequiredService<ILogger<Worker>>());
+            return new Worker(ServiceProvider.GetRequiredService<IGathererService>(), ServiceProvider.GetRequiredService<ILogger<Worker>>(), ServiceProvider.GetRequiredService<IIterationService>());
         });
         services.AddScoped<IWebDriver>((ServiceProvider) =>
         {
             return new ChromeDriver();
-        });
-        services.AddScoped<IGathererService>((ServiceProvider) =>
-        {
-            return new GathererService(httpClient: new HttpClient(), driver: ServiceProvider.GetRequiredService<IWebDriver>());
         });
     })
     .Build();
